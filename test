@@ -341,6 +341,27 @@ public class SalesforceApi
         }
     }
 }
+
+json
+Copy code
+{
+  "FirstName": "John",
+  "LastName": "Smith",
+  "Email": "john.smith@example.com"
+}
+This JSON payload is included in the body of a POST request directed at the Salesforce REST API's endpoint for record creation (/services/data/vXX.0/sobjects/Contact/). Here, FirstName, LastName, and Email are fields within the Contact object that you are populating with new data.
+
+son
+Copy code
+{
+  "id": "003xx000004TmiQAAS",
+  "success": true,
+  "errors": []
+}
+id: The unique identifier for the newly created Contact record.
+success: A boolean value indicating whether the creation was successful.
+errors: An array of error messages, if any were encountered during the creation process. This array is empty if the operation was successful.
+
 Usage
 To use the above classes to authenticate and create a contact in Salesforce:
 
@@ -384,6 +405,25 @@ public async Task<string> RetrieveContactAsync(string contactId)
         throw new Exception("Failed to retrieve contact.");
     }
 }
+
+JSON Response Payload upon Successful Retrieval
+When you successfully retrieve the record, Salesforce returns a JSON response that includes the fields of the Contact record. Here's an example of what the response might look like:
+
+json
+Copy code
+{
+  "Id": "003xx000004TmiQAAS",
+  "FirstName": "John",
+  "LastName": "Smith",
+  "Email": "john.smith@example.com",
+  "Phone": "123-456-7890",
+  "attributes": {
+    "type": "Contact",
+    "url": "/services/data/vXX.0/sobjects/Contact/003xx000004TmiQAAS"
+  }
+}
+Each key-value pair represents a field and its value in the Contact record.
+The attributes object includes metadata about the record, such as its type (Contact) and a relative URL to the record itself.
 Update a Record
 Updating a record is similar to creating one, but you use a PATCH request and include the record ID in the URL.
 
