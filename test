@@ -1,9 +1,7 @@
 using System;
 using System.Net.Http;
 using System.Net.Http.Headers;
-using System.Text;
 using System.Threading.Tasks;
-using Newtonsoft.Json;
 
 public class SalesforceApi
 {
@@ -14,30 +12,28 @@ public class SalesforceApi
         _salesforceAuth = salesforceAuth;
     }
 
-    public async Task<string> GetOpportunityAsync(string opportunityId)
+    public async Task<string> GetAllOpportunitiesAsync()
     {
         using (var httpClient = new HttpClient())
         {
             httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _salesforceAuth.AccessToken);
             httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 
-            // Construct the request URL
-            var requestUrl = $"{_salesforceAuth.InstanceUrl}/services/data/vXX.0/sobjects/Opportunity/{opportunityId}";
+            // SOQL query to select opportunities. Modify the query to fit your needs.
+            string soqlQuery = "SELECT Id, Name, CloseDate, StageName, Amount FROM Opportunity";
+            string requestUrl = $"{_salesforceAuth.InstanceUrl}/services/data/vXX.0/query/?q={Uri.EscapeDataString(soqlQuery)}";
 
-            // Make the GET request
             var response = await httpClient.GetAsync(requestUrl);
 
             if (response.IsSuccessStatusCode)
             {
-                // If the request was successful, read the response content and return it
                 string responseContent = await response.Content.ReadAsStringAsync();
-                return responseContent; // You can also deserialize this JSON string to a specific C# object if needed
+                return responseContent; // Contains JSON string of all opportunities
             }
             else
             {
-                // If the request was not successful, throw an exception with the response content
                 string responseContent = await response.Content.ReadAsStringAsync();
-                throw new Exception($"Failed to retrieve opportunity: {responseContent}");
+                throw new Exception($"Failed to retrieve opportunities: {responseContent}");
             }
         }
     }
