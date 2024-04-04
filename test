@@ -1,35 +1,44 @@
-<settings xmlns="http://maven.apache.org/SETTINGS/1.0.0"
-          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-          xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.0.0
-                              http://maven.apache.org/xsd/settings-1.0.0.xsd">
-    <proxies>
-        <!-- Uncomment and fill in if you use a proxy -->
-        <!--
-        <proxy>
-           <id>example-proxy</id>
-           <active>true</active>
-           <protocol>http</protocol>
-           <host>proxy.example.com</host>
-           <port>8080</port>
-           <username>proxyuser</username>
-           <password>proxypassword</password>
-           <nonProxyHosts>www.google.com|*.example.com</nonProxyHosts>
-        </proxy>
-        -->
-    </proxies>
+using System;
+using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Text;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
 
-    <mirrors>
-        <!-- Mirror from Maven Central (optional, if you need to specify a mirror) -->
-        <mirror>
-            <id>central</id>
-            <mirrorOf>central</mirrorOf>
-            <url>https://repo1.maven.org/maven2/</url>
-        </mirror>
-    </mirrors>
+public class SalesforceApi
+{
+    private readonly SalesforceAuth _salesforceAuth;
 
-    <!-- Other configurations like servers for deployment -->
-    <!-- servers -->
-    <!-- profiles -->
-    <!-- activeProfiles -->
+    public SalesforceApi(SalesforceAuth salesforceAuth)
+    {
+        _salesforceAuth = salesforceAuth;
+    }
 
-</settings>
+    public async Task<string> GetOpportunityAsync(string opportunityId)
+    {
+        using (var httpClient = new HttpClient())
+        {
+            httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _salesforceAuth.AccessToken);
+            httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+            // Construct the request URL
+            var requestUrl = $"{_salesforceAuth.InstanceUrl}/services/data/vXX.0/sobjects/Opportunity/{opportunityId}";
+
+            // Make the GET request
+            var response = await httpClient.GetAsync(requestUrl);
+
+            if (response.IsSuccessStatusCode)
+            {
+                // If the request was successful, read the response content and return it
+                string responseContent = await response.Content.ReadAsStringAsync();
+                return responseContent; // You can also deserialize this JSON string to a specific C# object if needed
+            }
+            else
+            {
+                // If the request was not successful, throw an exception with the response content
+                string responseContent = await response.Content.ReadAsStringAsync();
+                throw new Exception($"Failed to retrieve opportunity: {responseContent}");
+            }
+        }
+    }
+}
