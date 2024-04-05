@@ -1,2 +1,36 @@
-https://chat.openai.com/share/f7cfb185-c86e-4e76-b05c-28b1105fdad2
-https://chat.openai.com/c/99c3e5ef-4632-4483-aa84-396f183b084e
+1. Create
+Operation: POST
+Endpoint: /services/data/vXX.0/sobjects/Opportunity/
+Description: Creates a new Opportunity record. The request body contains the field values for the new record in JSON format.
+2. Read (Retrieve)
+Operation: GET
+Endpoint: /services/data/vXX.0/sobjects/Opportunity/{Id}
+Description: Retrieves the details of a specific Opportunity record by its Salesforce ID. Returns data in JSON format.
+3. Update
+Operation: PATCH
+Endpoint: /services/data/vXX.0/sobjects/Opportunity/{Id}
+Description: Updates field values of an existing Opportunity record identified by its Salesforce ID. The request body contains the fields to update in JSON format.
+4. Delete
+Operation: DELETE
+Endpoint: /services/data/vXX.0/sobjects/Opportunity/{Id}
+Description: Deletes an Opportunity record by its Salesforce ID.
+5. Query
+Operation: GET
+Endpoint: /services/data/vXX.0/query/?q={SOQL_Query}
+Description: Executes a SOQL query that can search for Opportunity records based on specified criteria. Useful for retrieving multiple records and supports filtering, sorting, and pagination.
+6. Upsert
+Operation: PATCH
+Endpoint: /services/data/vXX.0/sobjects/Opportunity/{External_Id_Field_Name}/{External_Id}
+Description: Inserts a new Opportunity record or updates an existing record, depending on whether an Opportunity with the specified external ID exists. The request body contains the Opportunity data in JSON format.
+7. Describe
+Operation: GET
+Endpoint: /services/data/vXX.0/sobjects/Opportunity/describe/
+Description: Retrieves metadata about the Opportunity object, including information about its fields, relationships, and permissions. Useful for understanding the object structure and data model.
+8. Recent
+Operation: GET
+Endpoint: /services/data/vXX.0/sobjects/Opportunity/recent/
+Description: Returns a list of recently viewed or modified Opportunity records.
+9. Search
+Operation: GET
+Endpoint: /services/data/vXX.0/search/?q={SOSL_Query}
+Description: Executes a SOSL search with a query string that can search across multiple objects, including Opportunity, and returns records that match the search criteria.
