@@ -166,5 +166,81 @@ public async Task UpsertOpportunityAsync(string externalIdValue, string opportun
                 Console.WriteLine("Opportunity upserted successfully.");
             }
         }
+
+public async Task<string> DescribeOpportunityAsync()
+    {
+        using (var httpClient = new HttpClient())
+        {
+            // Set the authorization header with the access token
+            httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _salesforceAuth.AccessToken);
+
+            // Construct the request URL for the describe endpoint
+            var requestUrl = $"{_salesforceAuth.InstanceUrl}/services/data/vXX.0/sobjects/Opportunity/describe";
+
+            // Make the GET request to the describe endpoint
+            var response = await httpClient.GetAsync(requestUrl);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                string responseContent = await response.Content.ReadAsStringAsync();
+                throw new Exception($"Failed to describe Opportunity: {responseContent}");
+            }
+            
+            // Read and return the response content
+            return await response.Content.ReadAsStringAsync();
+        }
     }
+
+//
+ public async Task<string> GetRecentOpportunitiesAsync()
+    {
+        using (var httpClient = new HttpClient())
+        {
+            // Set the authorization header with the access token
+            httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _salesforceAuth.AccessToken);
+
+            // Construct the request URL for the recent opportunities endpoint
+            var requestUrl = $"{_salesforceAuth.InstanceUrl}/services/data/vXX.0/sobjects/Opportunity/recent/";
+
+            // Make the GET request to the recent endpoint
+            var response = await httpClient.GetAsync(requestUrl);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                string responseContent = await response.Content.ReadAsStringAsync();
+                throw new Exception($"Failed to get recent Opportunities: {responseContent}");
+            }
+
+            // Read and return the response content
+            return await response.Content.ReadAsStringAsync();
+        }
+    }
+//
+
+public async Task<string> SearchOpportunitiesAsync(string searchString)
+    {
+        using (var httpClient = new HttpClient())
+        {
+            httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _salesforceAuth.AccessToken);
+
+            // URL encode the search string and construct the SOSL query
+            string encodedSearchString = HttpUtility.UrlEncode($"FIND {{{searchString}}} IN ALL FIELDS RETURNING Opportunity(Name, CloseDate, StageName, Amount)");
+            var requestUrl = $"{_salesforceAuth.InstanceUrl}/services/data/vXX.0/search/?q={encodedSearchString}";
+
+            // Make the GET request to the search endpoint
+            var response = await httpClient.GetAsync(requestUrl);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                string responseContent = await response.Content.ReadAsStringAsync();
+                throw new Exception($"Failed to search Opportunities: {responseContent}");
+            }
+
+            // Read and return the response content
+            return await response.Content.ReadAsStringAsync();
+        }
+    }
+    }
+
+
 }
