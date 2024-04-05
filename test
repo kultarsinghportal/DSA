@@ -70,4 +70,26 @@ public async Task<string> CreateOpportunityAsync(string opportunityName, DateTim
             }
         }
     }
+
+ public async Task DeleteOpportunityAsync(string opportunityId)
+    {
+        using (var httpClient = new HttpClient())
+        {
+            httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _salesforceAuth.AccessToken);
+            httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+            var requestUrl = $"{_salesforceAuth.InstanceUrl}/services/data/vXX.0/sobjects/Opportunity/{opportunityId}";
+
+            var response = await httpClient.DeleteAsync(requestUrl);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                string responseContent = await response.Content.ReadAsStringAsync();
+                throw new Exception($"Failed to delete opportunity: {responseContent}");
+            }
+            else
+            {
+                Console.WriteLine($"Opportunity with ID {opportunityId} was successfully deleted.");
+            }
+        }
 }
