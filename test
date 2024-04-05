@@ -92,4 +92,79 @@ public async Task<string> CreateOpportunityAsync(string opportunityName, DateTim
                 Console.WriteLine($"Opportunity with ID {opportunityId} was successfully deleted.");
             }
         }
+
+public async Task UpdateOpportunityAsync(string opportunityId, string newName, DateTime newCloseDate, double newAmount)
+    {
+        using (var httpClient = new HttpClient())
+        {
+            httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _salesforceAuth.AccessToken);
+            httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+            var opportunityData = new
+            {
+                Name = newName,
+                CloseDate = newCloseDate.ToString("yyyy-MM-dd"),
+                Amount = newAmount
+            };
+
+            var jsonContent = JsonConvert.SerializeObject(opportunityData);
+            var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
+
+            var requestUrl = $"{_salesforceAuth.InstanceUrl}/services/data/vXX.0/sobjects/Opportunity/{opportunityId}";
+
+            // Salesforce API requires using PATCH method for updates, but HttpClient does not have a PatchAsync method directly.
+            // So, we use SendAsync method with the PATCH method explicitly set.
+            var request = new HttpRequestMessage(new HttpMethod("PATCH"), requestUrl) { Content = content };
+
+            var response = await httpClient.SendAsync(request);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                string responseContent = await response.Content.ReadAsStringAsync();
+                throw new Exception($"Failed to update opportunity: {responseContent}");
+            }
+            else
+            {
+                Console.WriteLine($"Opportunity with ID {opportunityId} was successfully updated.");
+            }
+        }
+    }
+
+public async Task UpsertOpportunityAsync(string externalIdValue, string opportunityName, DateTime closeDate, double amount)
+    {
+        using (var httpClient = new HttpClient())
+        {
+            httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _salesforceAuth.AccessToken);
+            httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+            var opportunityData = new
+            {
+                Name = opportunityName,
+                CloseDate = closeDate.ToString("yyyy-MM-dd"),
+                StageName = "Prospecting", // Example stage name, adjust as needed
+                Amount = amount
+            };
+
+            var jsonContent = JsonConvert.SerializeObject(opportunityData);
+            var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
+
+            var requestUrl = $"{_salesforceAuth.InstanceUrl}/services/data/vXX.0/sobjects/Opportunity/External_ID__c/{externalIdValue}";
+
+            // Salesforce REST API uses PATCH method for the upsert operation
+            var request = new HttpRequestMessage(new HttpMethod("PATCH"), requestUrl) { Content = content };
+
+            var response = await httpClient.SendAsync(request);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                string responseContent = await response.Content.ReadAsStringAsync();
+                throw new Exception($"Failed to upsert opportunity: {responseContent}");
+            }
+            else
+            {
+                // Success, you can parse the response content if needed or simply acknowledge success
+                Console.WriteLine("Opportunity upserted successfully.");
+            }
+        }
+    }
 }
