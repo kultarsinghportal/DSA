@@ -292,4 +292,47 @@ insert pushTopic;
             }
         }
 
+// Initialize the HTTP client used by CometD for long polling
+            var httpClient = new System.Net.Http.HttpClient();
+            
+            // Setup the CometD client
+            var options = new Dictionary<string, object>();
+            var transport = new LongPollingTransport(options, httpClient);
+            var client = new BayeuxClient($"{salesforceInstance}/cometd/{apiVersion}/", new List<ClientTransport> { transport });
+
+            client.AddExtension(new AuthorizationExtension(accessToken));
+
+            client.Handshake();
+            client.WaitFor(10000, new[] { BayeuxClient.State.CONNECTED });
+
+            client.GetChannel("/topic/YourTopicName").Subscribe((s, e) => {
+                Console.WriteLine("Received: " + e.Data);
+            });
+
+            Console.WriteLine("Press any key to exit...");
+            Console.ReadKey();
+
+            client.Disconnect();
+        }
+
+        class AuthorizationExtension : IExtension
+        {
+            private string _accessToken;
+
+            public AuthorizationExtension(string accessToken)
+            {
+                _accessToken = accessToken;
+            }
+
+            public bool Receive(IMutableMessage message)
+            {
+                return true;
+            }
+
+            public bool Send(IMutableMessage message)
+            {
+                message.AddHeader("Authorization", "Bearer " + _accessToken);
+                return true;
+            }
+        }
 }
