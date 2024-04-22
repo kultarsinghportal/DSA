@@ -241,6 +241,55 @@ public async Task<string> SearchOpportunitiesAsync(string searchString)
         }
     }
     }
+// Streaming
+PushTopic pushTopic = new PushTopic();
+pushTopic.Name = 'OpportunityUpdates';
+pushTopic.Query = 'SELECT Id, Name, StageName, Amount FROM Opportunity WHERE IsClosed = false';
+pushTopic.ApiVersion = 52.0;
+pushTopic.NotifyForOperationUpdate = true;
+pushTopic.NotifyForFields = 'Referenced';
+insert pushTopic;
 
+ string salesforceInstance = "https://login.salesforce.com";
+            string accessToken = "Your_Access_Token_Here";
+            string apiVersion = "52.0";  // Replace with your Salesforce API version
+            string topic = "/topic/YourTopicName";
+
+            var client = new BayeuxClient($"{salesforceInstance}/cometd/{apiVersion}/",
+                new LongPollingTransport(new Dictionary<string, object>(), new HttpClientTransport()));
+
+            client.AddExtension(new CometDExtension(accessToken));
+
+            client.Handshake();
+            client.WaitFor(10000, new[] { BayeuxClient.State.CONNECTED });
+
+            client.GetChannel(topic).Subscribe((s, e) => {
+                Console.WriteLine("Received: " + e.Data);
+            });
+
+            Console.WriteLine("Press any key to exit...");
+            Console.ReadKey();
+
+            client.Disconnect();
+
+ private class CometDExtension : IExtension
+        {
+            private readonly string _accessToken;
+            public CometDExtension(string accessToken)
+            {
+                _accessToken = accessToken;
+            }
+
+            public bool Receive(IMutableMessage message)
+            {
+                return true;
+            }
+
+            public bool Send(IMutableMessage message)
+            {
+                message.AddHeader("Authorization", "Bearer " + _accessToken);
+                return true;
+            }
+        }
 
 }
