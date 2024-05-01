@@ -381,3 +381,55 @@ insert pushTopic;
                 return true;
             }
         }
+
+
+ class OpportunityContentEvent
+    {
+        public string DocumentId { get; set; }
+        public string OpportunityId { get; set; }
+        public string Action { get; set; }
+        public string UserId { get; set; }
+        public string Details { get; set; }
+    }
+
+trigger ContentDocumentLinkTrigger on ContentDocumentLink (after insert, after update, after delete) {
+    List<OpportunityContentEvent__e> events = new List<OpportunityContentEvent__e>();
+    String baseUrl = URL.getSalesforceBaseUrl().toExternalForm();
+
+    for (ContentDocumentLink link : Trigger.new) {
+        if (link.LinkedEntityId.getSObjectType() == Opportunity.sObjectType) {
+            // Retrieve the latest ContentVersion ID for the document
+            ContentVersion latestVersion = [
+                SELECT Id, ContentDocumentId 
+                FROM ContentVersion 
+                WHERE ContentDocumentId = :link.ContentDocumentId 
+                ORDER BY CreatedDate DESC 
+                LIMIT 1
+            ];
+
+            // Construct the download URL
+            String downloadUrl = baseUrl + '/sfc/servlet.shepherd/version/download/' + latestVersion.Id;
+
+            OpportunityContentEvent__e event = new OpportunityContentEvent__e(
+                DocumentId__c = link.ContentDocumentId,
+                OpportunityId__c = link.LinkedEntityId,
+                Action__c = Trigger.isInsert ? 'Created' : (Trigger.isUpdate ? 'Updated' : 'Deleted'),
+                UserId__c = UserInfo.getUserId(),
+                Details__c = '{"Size": "' + link.ContentDocument.LatestPublishedVersion.ContentSize + '", "DownloadUrl": "' + downloadUrl + '"}'
+            );
+            events.add(event);
+        }
+    }
+    if (!events.isEmpty()) {
+        EventBus.publish(events);
+    }
+}
+
+
+OpportunityContentEvent__e
+
+DocumentId__c (Text): To store the Salesforce ID of the document.
+OpportunityId__c (Text): To store the Salesforce ID of the related Opportunity.
+Action__c (Text): To specify the type of CRUD operation (Created, Updated, Deleted).
+Details__c (Long Text Area): To store JSON-formatted details about the change, if needed.
+UserId__c (Text): To store the ID of the user who performed the action.
