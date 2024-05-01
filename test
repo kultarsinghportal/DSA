@@ -469,3 +469,10 @@ Console.WriteLine("User ID: " + eventObj.UserId);
 Console.WriteLine("Document Size: " + eventObj.DocumentDetails.Size);
 Console.WriteLine("Download URL: " + eventObj.DocumentDetails.DownloadUrl);
 
+I have successfully created the Platform Event and corresponding Apex trigger, and I am able to establish a handshake with the CometD endpoint. However, when attempting to connect to the Platform Event for subscription, I encountered the following error message:
+
+Message: 403: denied_by_security_policy:create_denied
+
+This error indicates that there may be a permission issue preventing the integration user from subscribing to the platform events. Could you please review the permissions assigned to the integration user to ensure that they have the necessary rights to subscribe to platform events? Specifically, please verify that the integration user has the "Subscribe to Platform Events" permission enabled.
+
+Additionally, I noticed that we are using an older API version (36.0) in our integration. Considering the potential benefits of using newer API versions, such as access to additional features, improved security, and bug fixes, I wanted to inquire about the reason for sticking with this older version. Would it be possible to update the API version to a more recent release to take advantage of these benefits?
