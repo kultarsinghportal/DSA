@@ -433,3 +433,39 @@ OpportunityId__c (Text): To store the Salesforce ID of the related Opportunity.
 Action__c (Text): To specify the type of CRUD operation (Created, Updated, Deleted).
 Details__c (Long Text Area): To store JSON-formatted details about the change, if needed.
 UserId__c (Text): To store the ID of the user who performed the action.
+
+using Newtonsoft.Json;
+using System.Collections.Generic;
+
+public class OpportunityContentEvent
+{
+    public string DocumentId { get; set; }
+    public string OpportunityId { get; set; }
+    public string Action { get; set; }
+    public string UserId { get; set; }
+    public string Details { get; set; }
+
+    // You can create a property to deserialize the JSON Details into an object or dictionary for easier access
+    [JsonIgnore] // This attribute ensures that this property is not treated as a serializable field itself
+    public Dictionary<string, string> DetailsDictionary => JsonConvert.DeserializeObject<Dictionary<string, string>>(Details);
+    
+    // Alternatively, if the structure of Details is fixed, you might define it as a class
+    [JsonIgnore]
+    public DocumentDetails DocumentDetails => JsonConvert.DeserializeObject<DocumentDetails>(Details);
+}
+
+// If you opt for a fixed class structure, define it based on your expected JSON
+public class DocumentDetails
+{
+    public long Size { get; set; }
+    public string DownloadUrl { get; set; }
+}
+
+var eventObj = JsonConvert.DeserializeObject<OpportunityContentEvent>(jsonData);
+Console.WriteLine("Document ID: " + eventObj.DocumentId);
+Console.WriteLine("Opportunity ID: " + eventObj.OpportunityId);
+Console.WriteLine("Action: " + eventObj.Action);
+Console.WriteLine("User ID: " + eventObj.UserId);
+Console.WriteLine("Document Size: " + eventObj.DocumentDetails.Size);
+Console.WriteLine("Download URL: " + eventObj.DocumentDetails.DownloadUrl);
+
