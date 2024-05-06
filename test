@@ -484,3 +484,33 @@ Successfully created Platform Event and Apex trigger. Handshake with CometD endp
 
 
 When integrating with Salesforce via REST API, Streaming API, and Platform Events, especially when these integrations involve triggering Apex, it’s essential to communicate effectively with the Salesforce Administrator to ensure that your implementation is robust, secure, and efficient. Here’s a list of questions you might consider asking the Salesforce Administrator:API Limits and Usage:What are the current API limits for our Salesforce org, and how much of these limits are we already using?How does the usage of the REST API, Streaming API, and Platform Events impact our total API limit?Are there any considerations or best practices we should follow to avoid hitting our API limits?Authentication and Security:What authentication method should we use for the APIs (e.g., OAuth, Session ID)?Are there any IP restrictions or trusted IP ranges set up that we need to consider when making API calls?How do we manage and store API credentials securely?Data and Schema Access:Can you provide the data schema or object model that our integration will interact with?Are there any objects or fields that are restricted or require special permissions?Do we need to consider any custom fields or objects specific to our Salesforce org?Governance and Compliance:Are there any specific audit or compliance requirements we need to adhere to when accessing or manipulating data via the API?How do we ensure that our data usage complies with Salesforce’s data security and privacy policies?Testing and Sandbox Environment:Do we have access to a sandbox environment to test our API integrations?How often can we refresh the sandbox environment?Are there any differences between the sandbox and production environments we should be aware of?Apex Triggers and Logic:What Apex triggers and logic are currently in place that might be executed as a result of our API activities?Are there any governor limits or best practices around Apex execution we need to be aware of?How are errors and exceptions handled within the existing Apex code?Monitoring and Logging:What tools or practices are in place to monitor API usage and performance?How can we access logs related to API calls and triggered Apex executions?Is there a process in place for alerting in case of failures or performance issues?Change Management:How are changes to the Salesforce environment managed?What is the process for updating or deploying new Apex code or schema changes?How can we coordinate our development and deployment cycles with other ongoing changes in the Salesforce org?Support and Escalation:What is the process for obtaining support if we encounter issues with the API or other integrations?Who are the key contacts for technical issues, and how do we escalate urgent problems?These questions will help ensure that your integration aligns with the existing Salesforce setup and adheres to best practices, helping to mitigate potential risks and performance issues.
+
+
+Certainly! Handling reconnections and managing disconnections is crucial when integrating with Salesforce APIs, especially with real-time services like the Streaming API. Here are some additional questions to ask the Salesforce Administrator specifically concerning connection stability and management:
+
+10. **Reconnection Policies and Procedures:**
+    - What reconnection mechanisms are recommended or already implemented in the case of API disconnections?
+    - Are there any built-in Salesforce features or third-party tools we should use to manage reconnections effectively?
+    - How does Salesforce handle persistent connections, and what are the best practices for maintaining them?
+
+11. **Handling API Downtime:**
+    - How are API downtimes communicated to clients?
+    - Is there a historical uptime/downtime log that we can review to understand potential availability issues?
+    - What are the standard protocols for handling planned Salesforce maintenance that might affect connectivity?
+
+12. **Error Handling and Retry Logic:**
+    - What common errors should we anticipate for disconnections, and how should these be handled programmatically?
+    - Is there a recommended exponential backoff strategy or other retry mechanisms for handling API request failures?
+    - How do we handle errors related to API limits being exceeded or service availability issues?
+
+13. **Performance Impacts of Reconnection:**
+    - How does reconnection affect our API limits and overall system performance?
+    - Are there any impacts on data consistency and integrity during frequent disconnections and reconnections?
+    - What strategies are recommended to minimize the performance impact of reconnections on our overall system?
+
+14. **Monitoring Connection Health:**
+    - What tools are available to monitor the health of our API connections in real-time?
+    - How can we implement proactive alerts for connection issues or performance degradations?
+    - What logs or metrics should we regularly review to identify potential connectivity problems?
+
+These questions focus on the robustness and reliability of your integration, ensuring that your application can handle interruptions gracefully and maintain consistent performance and data integrity.
