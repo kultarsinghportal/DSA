@@ -1,0 +1,59 @@
+title Salesforce Event Processing Flow
+
+participant Salesforce as SF
+participant CometDClient as CometD
+participant EventBus as Bus
+participant SalesforceEventMessageListener as Listener
+participant ChannelEventQueue as Queue
+participant MediatR as Mediator
+participant EventHandler as Handler
+participant ReplayIdsHashtable as ReplayID
+
+note right of SF: Streaming Events
+loop for each event
+    SF->CometD: Publish Event
+    activate CometD
+
+    CometD->Bus: Notify Event
+    deactivate CometD
+    activate Bus
+
+    Bus->Listener: Forward Event
+    deactivate Bus
+    activate Listener
+
+    Listener->Queue: Enqueue Event
+    deactivate Listener
+    activate Queue
+
+    alt event handling
+        Queue->Mediator: Send Event
+        deactivate Queue
+        activate Mediator
+
+        Mediator->Handler: Handle Event
+        activate Handler
+        Handler->Mediator: Event Processed
+        deactivate Handler
+
+        Mediator->ReplayID: Update Replay ID
+        deactivate Mediator
+        activate ReplayID
+        ReplayID->Queue: Acknowledge & Fetch Next Event
+        deactivate ReplayID
+        activate Queue
+    else connection timeout/reconnection
+        CometD->Bus: Attempt Reconnect
+        activate CometD
+        Bus->CometD: Reconnect Successful
+        deactivate CometD
+        activate Bus
+    end
+
+    Queue->Listener: Listen for Next Event
+    deactivate Queue
+    activate Listener
+
+    Listener->SF: Listen for Event
+    deactivate Listener
+end
