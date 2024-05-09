@@ -1,16 +1,41 @@
 title Salesforce Event Processing Flow
 
-participant Salesforce as SF
-participant CometDClient as CometD
-participant EventBus as Bus
-participant SalesforceEventMessageListener as Listener
-participant ChannelEventQueue as Queue
-participant MediatR as Mediator
-participant EventHandler as Handler
-participant ReplayIdsHashtable as ReplayID
+actor Author
+
+participant SF
+participant CometD
+participant Bus
+participant Listener
+participant Queue
+participant Mediator
+participant Handler
+participant ReplayID
 
 note right of SF: Streaming Events
+
+alt Authentication
+    CometD->SF: Request Access Token
+    SF-->CometD: Access Token Response
+else Authentication Failed
+    CometD->CometD: Log Error & Retry Authentication
+end
+
+alt Handshake
+    CometD->SF: Send Handshake with Token
+    SF-->CometD: Handshake Acknowledged
+else Handshake Failed
+    CometD->CometD: Log Error & Retry Handshake
+end
+
+alt Subscription
+    CometD->SF: Subscribe to Event Channels
+    SF-->CometD: Subscription Acknowledged
+else Subscription Failed
+    CometD->CometD: Log Error & Retry Subscription
+end
+
 loop for each event
+    Author -> SF:Publish Event
     SF->CometD: Publish Event
     activate CometD
 
@@ -26,34 +51,46 @@ loop for each event
     deactivate Listener
     activate Queue
 
-    alt event handling
+    alt Successful Enqueue
         Queue->Mediator: Send Event
         deactivate Queue
         activate Mediator
 
-        Mediator->Handler: Handle Event
-        activate Handler
-        Handler->Mediator: Event Processed
-        deactivate Handler
+        alt Event Handled Successfully
+            Mediator->Handler: Handle Event
+            activate Handler
+            Handler->Mediator: Event Processed
+            deactivate Handler
 
-        Mediator->ReplayID: Update Replay ID
-        deactivate Mediator
-        activate ReplayID
-        ReplayID->Queue: Acknowledge & Fetch Next Event
-        deactivate ReplayID
-        activate Queue
-    else connection timeout/reconnection
+            Mediator->ReplayID: Update Replay ID
+            deactivate Mediator
+            activate ReplayID
+            ReplayID->Queue: Acknowledge & Fetch Next Event
+            deactivate ReplayID
+            activate Queue
+        else Event Handling Failed
+            Mediator->Queue: Handling Failed, Requeue or Discard
+            deactivate Mediator
+            activate Queue
+        end
+    else Failed to Enqueue
+        Queue->Listener: Queue Full or Error
+        deactivate Queue
+        activate Listener
+    end
+
+    alt Listening for Next Event
+        Queue->Listener: Listen for Next Event
+        deactivate Queue
+        activate Listener
+
+        Listener->SF: Listen for Event
+        deactivate Listener
+    else Reconnection Required
         CometD->Bus: Attempt Reconnect
         activate CometD
         Bus->CometD: Reconnect Successful
         deactivate CometD
         activate Bus
     end
-
-    Queue->Listener: Listen for Next Event
-    deactivate Queue
-    activate Listener
-
-    Listener->SF: Listen for Event
-    deactivate Listener
 end
