@@ -1,27 +1,20 @@
 title Salesforce Event Processing Flow
-actor Sales
 fontawesome5brands f83b Salesforce #skyblue
- SalesforceEventProcessorService as SEPS
- EventBus as Bus
- SalesforceEventMessageListener as Listener
- ChannelEventQueue as Queue
- MediatR as Mediator
- EventHandler as Handler
- ReplayIdsHashtable as ReplayID
+fontawesome5solid f0e7 "EventProcessor" as SEPS #gold
 
 alt Authentication
     loop up to 3 retries
-        SEPS->SF: HTTP Client async request for Access Token (username, password, client ID, client secret, grant_type: password)
+        SEPS->Salesforce: Access Token Request
         alt Successful Authentication
-            SF-->SEPS: Access Token Response
+            Salesforce-->SEPS: Access Token Response
             break
         else Authentication Failed
-            SF-->SEPS: Error Response (invalid_grant, invalid_client, etc.)
+            Salesforce-->SEPS: Error Response (invalid_grant, invalid_client, etc.)
             SEPS->SEPS: Increment retry counter
         end
     end
     alt Exceeded Retry Limit
-        SEPS->SEPS: Log Error & Alert for potential brute force attack
+        SEPS->SEPS: Log Error & Alert
     else Authentication Permanently Failed
         SEPS->SEPS: Disable Account or Notify Admin
     end
@@ -29,12 +22,12 @@ end
 
 alt Handshake
     loop up to 3 retries
-        SEPS->SF: Bayeux Client Handshake via CometD with Access Token
+        SEPS->Salesforce: Handshake
         alt Handshake Successful
-            SF-->SEPS: Handshake Acknowledged
+            Salesforce-->SEPS: Handshake Acknowledged
             break
         else Handshake Failed
-            SF-->SEPS: Error Response (Handshake failure reasons)
+            Salesforce-->SEPS: Error Response (Handshake failure reasons)
             SEPS->SEPS: Log Error & Increment handshake retry counter
         end
     end
@@ -47,12 +40,12 @@ end
 
 alt Subscription
     loop up to 3 retries
-        SEPS->SF: Subscribe to Event Channels using Bayeux protocol via CometD
+        SEPS->Salesforce: Subscribe to Event Channels using Bayeux protocol via CometD
         alt Subscription Successful
-            SF-->SEPS: Subscription Acknowledged
+            Salesforce-->SEPS: Subscription Acknowledged
             break
         else Subscription Failed
-            SF-->SEPS: Error Response (Subscription failure reasons)
+            Salesforce-->SEPS: Error Response (Subscription failure reasons)
             SEPS->SEPS: Log Error & Increment subscription retry counter
         end
     end
@@ -63,9 +56,26 @@ else Subscription Permanently Failed
     SEPS->SEPS: Notify Admin or Adjust Configuration
 end
 
+
+
+
+
+
+title Salesforce Event Processing Flow
+actor Sales
+fontawesome5brands f83b Salesforce #skyblue
+fontawesome5solid f0e7 "EventProcessor" as SEPS #gold
+participant "EventBus" as Bus
+participant "EventListener" as Listener
+participant "ChannelEventQueue" as Queue
+participant "MediatR" as Mediator
+participant "EventHandler" as Handler
+participant "ReplayIdsHashtable" as ReplayID
+
+SEPS <-- Handler : Register 
 loop for each event
 Sales -> Salesforce:Draft
-    SF->SEPS: Publish Event using Bayeux protocol via CometD
+    Salesforce->SEPS: Publish Event
     activate SEPS
 
     SEPS->Bus: Notify Event
@@ -113,12 +123,12 @@ Sales -> Salesforce:Draft
         deactivate Queue
         activate Listener
 
-        Listener->SF: Listen for Event via Bayeux protocol and CometD
+        Listener->Salesforce: Listen for Event
         deactivate Listener
     else Reconnection Required
-        SEPS->Bus: Attempt Reconnect via CometD
+        SEPS->Bus: Attempt Reconnect
         activate SEPS
-        Bus->SEPS: Reconnect Successful via CometD
+        Bus->SEPS: Reconnect Successful
         deactivate SEPS
         activate Bus
     end
