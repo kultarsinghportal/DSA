@@ -1,46 +1,75 @@
 title Salesforce Event Processing Flow
-
-actor Author
-
-participant SF
-participant CometD
-participant Bus
-participant Listener
-participant Queue
-participant Mediator
-participant Handler
-participant ReplayID
-
-note right of SF: Streaming Events
+actor Sales
+fontawesome5brands f83b Salesforce #skyblue
+ SalesforceEventProcessorService as SEPS
+ EventBus as Bus
+ SalesforceEventMessageListener as Listener
+ ChannelEventQueue as Queue
+ MediatR as Mediator
+ EventHandler as Handler
+ ReplayIdsHashtable as ReplayID
 
 alt Authentication
-    CometD->SF: Request Access Token
-    SF-->CometD: Access Token Response
-else Authentication Failed
-    CometD->CometD: Log Error & Retry Authentication
+    loop up to 3 retries
+        SEPS->SF: HTTP Client async request for Access Token (username, password, client ID, client secret, grant_type: password)
+        alt Successful Authentication
+            SF-->SEPS: Access Token Response
+            break
+        else Authentication Failed
+            SF-->SEPS: Error Response (invalid_grant, invalid_client, etc.)
+            SEPS->SEPS: Increment retry counter
+        end
+    end
+    alt Exceeded Retry Limit
+        SEPS->SEPS: Log Error & Alert for potential brute force attack
+    else Authentication Permanently Failed
+        SEPS->SEPS: Disable Account or Notify Admin
+    end
 end
 
 alt Handshake
-    CometD->SF: Send Handshake with Token
-    SF-->CometD: Handshake Acknowledged
-else Handshake Failed
-    CometD->CometD: Log Error & Retry Handshake
+    loop up to 3 retries
+        SEPS->SF: Bayeux Client Handshake via CometD with Access Token
+        alt Handshake Successful
+            SF-->SEPS: Handshake Acknowledged
+            break
+        else Handshake Failed
+            SF-->SEPS: Error Response (Handshake failure reasons)
+            SEPS->SEPS: Log Error & Increment handshake retry counter
+        end
+    end
+    alt Exceeded Handshake Retry Limit
+        SEPS->SEPS: Log Critical Error & Disable Handshake Attempts
+    end
+else Handshake Permanently Failed
+    SEPS->SEPS: Disable Related Services or Notify Admin
 end
 
 alt Subscription
-    CometD->SF: Subscribe to Event Channels
-    SF-->CometD: Subscription Acknowledged
-else Subscription Failed
-    CometD->CometD: Log Error & Retry Subscription
+    loop up to 3 retries
+        SEPS->SF: Subscribe to Event Channels using Bayeux protocol via CometD
+        alt Subscription Successful
+            SF-->SEPS: Subscription Acknowledged
+            break
+        else Subscription Failed
+            SF-->SEPS: Error Response (Subscription failure reasons)
+            SEPS->SEPS: Log Error & Increment subscription retry counter
+        end
+    end
+    alt Exceeded Subscription Retry Limit
+        SEPS->SEPS: Log Critical Error & Disable Subscription Attempts
+    end
+else Subscription Permanently Failed
+    SEPS->SEPS: Notify Admin or Adjust Configuration
 end
 
 loop for each event
-    Author -> SF:Publish Event
-    SF->CometD: Publish Event
-    activate CometD
+Sales -> Salesforce:Draft
+    SF->SEPS: Publish Event using Bayeux protocol via CometD
+    activate SEPS
 
-    CometD->Bus: Notify Event
-    deactivate CometD
+    SEPS->Bus: Notify Event
+    deactivate SEPS
     activate Bus
 
     Bus->Listener: Forward Event
@@ -84,13 +113,13 @@ loop for each event
         deactivate Queue
         activate Listener
 
-        Listener->SF: Listen for Event
+        Listener->SF: Listen for Event via Bayeux protocol and CometD
         deactivate Listener
     else Reconnection Required
-        CometD->Bus: Attempt Reconnect
-        activate CometD
-        Bus->CometD: Reconnect Successful
-        deactivate CometD
+        SEPS->Bus: Attempt Reconnect via CometD
+        activate SEPS
+        Bus->SEPS: Reconnect Successful via CometD
+        deactivate SEPS
         activate Bus
     end
 end
