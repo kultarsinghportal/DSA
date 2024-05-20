@@ -514,3 +514,56 @@ Certainly! Handling reconnections and managing disconnections is crucial when in
     - What logs or metrics should we regularly review to identify potential connectivity problems?
 
 These questions focus on the robustness and reliability of your integration, ensuring that your application can handle interruptions gracefully and maintain consistent performance and data integrity.
+
+using Xunit;
+using AutoFixture;
+using AutoFixture.AutoNSubstitute;
+using NSubstitute;
+using Microsoft.Extensions.Logging;
+using System;
+using System.Threading.Tasks;
+using System.Threading;
+using System.Collections.Generic;
+using System.Linq;
+
+public class WorkerTests
+{
+    [Fact]
+    public async Task Worker_HandlesExceptions_WhenProcessingDocuments()
+    {
+        // Arrange
+        var fixture = new Fixture().Customize(new AutoNSubstituteCustomization());
+        
+        var mockClient = fixture.Freeze<ISalesForceClient>();
+        var documents = new List<RootObject>
+        {
+            fixture.Create<RootObject>(),
+            fixture.Create<RootObject>()
+        };
+
+        var asyncEnumerable = documents.ToAsyncEnumerable();
+        mockClient.Subscribe("topic/OpportunityUpdates", Arg.Any<CancellationToken>())
+                  .Returns(asyncEnumerable);
+
+        var mockProcessor = fixture.Freeze<ISalesForceDataProcessor>();
+        var expectedException = new InvalidOperationException("Test exception");
+        mockProcessor.Process(Arg.Any<RootObject>()).Returns(Task.FromException(expectedException));
+
+        var mockLogger = fixture.Freeze<ILogger<Worker>>();
+        var worker = new TestableWorker(mockClient, mockProcessor, mockLogger);
+
+        // Act
+        var cancellationToken = new CancellationToken(false);
+        await worker.ExecuteAsyncPublic(cancellationToken);
+
+        // Assert
+        mockProcessor.Received(documents.Count).Process(Arg.Any<RootObject>());
+        mockLogger.Received().Log(
+            LogLevel.Error,
+            Arg.Any<EventId>(),
+            Arg.Is<object>(o => o.ToString().Contains("Error processing Salesforce document")),
+            Arg.Is<Exception>(ex => ex == expectedException && ex.Message == "Test exception"),
+            Arg.Any<Func<object, Exception?, string>>());
+    }
+}
+
