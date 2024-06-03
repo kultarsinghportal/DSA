@@ -1,0 +1,114 @@
+public class SalesforceClient
+{
+    private readonly string instanceUrl;
+    private readonly string accessToken;
+
+    public SalesforceClient(string instanceUrl, string accessToken)
+    {
+        this.instanceUrl = instanceUrl;
+        this.accessToken = accessToken;
+    }
+
+    public async Task CreateCustomObjectAsync()
+    {
+        using (var client = new HttpClient())
+        {
+            client.DefaultRequestHeaders.Add("Authorization", "Bearer " + accessToken);
+            client.DefaultRequestHeaders.Add("Content-Type", "application/json");
+
+            var customObject = new
+            {
+                FullName = "Custom_Opportunity__c",
+                Label = "Custom Opportunity",
+                PluralLabel = "Custom Opportunities",
+                NameField = new
+                {
+                    type = "Text",
+                    label = "Opportunity Name"
+                },
+                DeploymentStatus = "Deployed",
+                SharingModel = "ReadWrite"
+            };
+
+            var content = new StringContent(JsonConvert.SerializeObject(customObject), Encoding.UTF8, "application/json");
+            var response = await client.PostAsync(instanceUrl + "/services/data/v52.0/sobjects/CustomObject", content);
+            response.EnsureSuccessStatusCode();
+        }
+    }
+}
+OpportunityScoping.permissionset-meta.xml
+
+<?xml version="1.0" encoding="UTF-8"?>
+<PermissionSet xmlns="http://soap.sforce.com/2006/04/metadata">
+    <label>Custom Opportunity Access</label>
+    <description>Permissions to access Custom Opportunity</description>
+    <objectPermissions>
+        <object>Custom_Opportunity__c</object>
+        <allowRead>true</allowRead>
+        <allowCreate>true</allowCreate>
+        <allowEdit>true</allowEdit>
+        <allowDelete>true</allowDelete>
+        <viewAllRecords>false</viewAllRecords>
+        <modifyAllRecords>false</viewAllRecords>
+    </objectPermissions>
+</PermissionSet>
+
+
+public async Task DeployMetadataAsync()
+{
+    var metadata = File.ReadAllBytes("path/to/OpportunityScoping.permissionset-meta.xml");
+
+    using (var client = new HttpClient())
+    {
+        client.DefaultRequestHeaders.Add("Authorization", "Bearer " + accessToken);
+        client.DefaultRequestHeaders.Add("Content-Type", "application/zip");
+
+        var content = new ByteArrayContent(metadata);
+        var response = await client.PostAsync(instanceUrl + "/services/Soap/m/52.0", content);
+        response.EnsureSuccessStatusCode();
+    }
+}
+public async Task AssignPermissionSetAsync(string userId, string permissionSetId)
+{
+    using (var client = new HttpClient())
+    {
+        client.DefaultRequestHeaders.Add("Authorization", "Bearer " + accessToken);
+        client.DefaultRequestHeaders.Add("Content-Type", "application/json");
+
+        var assignment = new
+        {
+            AssigneeId = userId,
+            PermissionSetId = permissionSetId
+        };
+
+        var content = new StringContent(JsonConvert.SerializeObject(assignment), Encoding.UTF8, "application/json");
+        var response = await client.PostAsync(instanceUrl + "/services/data/v52.0/sobjects/PermissionSetAssignment", content);
+        response.EnsureSuccessStatusCode();
+    }
+}
+using System;
+using System.Threading.Tasks;
+
+class Program
+{
+    static async Task Main(string[] args)
+    {
+        string instanceUrl = "https://yourInstance.salesforce.com";
+        string accessToken = await SalesforceAuthenticator.GetAccessTokenAsync();
+        string permissionSetName = "Custom_Opportunity_Access";
+        string userId = "005XXXXXXXXXXXX"; // Replace with the Salesforce User ID
+
+        var client = new SalesforceClient(instanceUrl, accessToken);
+        string permissionSetId = await client.GetPermissionSetIdAsync(permissionSetName);
+
+        if (!string.IsNullOrEmpty(permissionSetId))
+        {
+            await client.AssignPermissionSetAsync(userId, permissionSetId);
+            Console.WriteLine("Permission set assigned successfully.");
+        }
+        else
+        {
+            Console.WriteLine("Permission set not found.");
+        }
+    }
+}
