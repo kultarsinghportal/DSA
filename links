@@ -1,5 +1,0 @@
-I wanted to share an overview of our Salesforce Event Processing System, captured through two detailed sequence diagrams. The first diagram focuses on establishing a secure connection with Salesforce, detailing processes such as authentication, handshake, and subscription. It highlights robust error handling, including retries and alerts for authentication failures and handshake issues.
-
-The second diagram dives into the real-time event processing post-connection setup. It illustrates the flow from event publication by Salesforce through various system components like the EventBus and MediatR, emphasizing efficient queue management and continuous system resilience. The diagram showcases how events are processed, managed, and prepared for the next operational cycle, with built-in mechanisms for error handling and reconnection.
-
-These diagrams collectively offer a comprehensive view of our system’s interaction with Salesforce, ensuring both secure connections and effective event handling.
