@@ -1,173 +1,24 @@
-Custom_Opportunity__c.object
-
-<?xml version="1.0" encoding="UTF-8"?>
-<CustomObject xmlns="http://soap.sforce.com/2006/04/metadata">
-    <label>Custom Opportunity</label>
-    <pluralLabel>Custom Opportunities</pluralLabel>
-    <nameField>
-        <label>Opportunity Name</label>
-        <type>Text</type>
-    </nameField>
-    <deploymentStatus>Deployed</deploymentStatus>
-    <sharingModel>ReadWrite</sharingModel>
-    <enableActivities>true</enableActivities>
-    <enableReports>true</enableReports>
-    <enableSearch>true</enableSearch>
-</CustomObject>
-
-CustomOpportunityAccess.permissionset
-
-<?xml version="1.0" encoding="UTF-8"?>
-<PermissionSet xmlns="http://soap.sforce.com/2006/04/metadata">
-    <label>Custom Opportunity Access</label>
-    <description>Permissions to access Custom Opportunity</description>
-    <objectPermissions>
-        <object>Custom_Opportunity__c</object>
-        <allowRead>true</allowRead>
-        <allowCreate>true</allowCreate>
-        <allowEdit>true</allowEdit>
-        <allowDelete>true</allowDelete>
-        <viewAllRecords>false</viewAllRecords>
-        <modifyAllRecords>false</modifyAllRecords>
-    </objectPermissions>
-</PermissionSet>
-
-
-src
-├───objects
-│   └───Custom_Opportunity__c.object
-└───permissionsets
-    └───CustomOpportunityAccess.permissionset
-
-using System;
-using System.IO;
-using System.Net.Http;
-using System.Net.Http.Headers;
-using System.Threading.Tasks;
-
-public class SalesforceMetadataDeployer
-{
-    private readonly string instanceUrl;
-    private readonly string accessToken;
-
-    public SalesforceMetadataDeployer(string instanceUrl, string accessToken)
-    {
-        this.instanceUrl = instanceUrl;
-        this.accessToken = accessToken;
-    }
-
-    public async Task DeployCustomObjectAsync()
-    {
-        var zipFilePath = "path/to/your/src.zip";
-        var zipFileContent = File.ReadAllBytes(zipFilePath);
-
-        using (var client = new HttpClient())
+ services.AddSingleton(provider =>
         {
-            client.DefaultRequestHeaders.Add("Authorization", "Bearer " + accessToken);
-            client.DefaultRequestHeaders.Add("Content-Type", "application/zip");
+            var options = provider.GetRequiredService<IOptions<SalesforceConfiguration>>();
+            var transport = provider.GetRequiredService<LongPollingTransport>();
+            var tokenResponse = provider.GetRequiredService<AsyncExpiringLazy<AccessTokenResponse>>();
+            var resilientStreamingClient = provider.GetRequiredService<ResilientStreamingClient>();
 
-            var content = new ByteArrayContent(zipFileContent);
-            content.Headers.ContentType = new MediaTypeHeaderValue("application/zip");
-
-            var response = await client.PostAsync($"{instanceUrl}/services/Soap/m/52.0", content);
-            response.EnsureSuccessStatusCode();
-
-            var responseString = await response.Content.ReadAsStringAsync();
-            Console.WriteLine(responseString);
-        }
-    }
-}
-
-class Program
-{
-    static async Task Main(string[] args)
-    {
-        var (accessToken, instanceUrl) = await SalesforceAuthenticator.GetAccessTokenAsync();
-
-        var deployer = new SalesforceMetadataDeployer(instanceUrl, accessToken);
-        await deployer.DeployCustomObjectAsync();
-
-        Console.WriteLine("Custom object deployed successfully.");
-    }
-}
-
-
-using System;
-using System.Net.Http;
-using System.Text;
-using System.Threading.Tasks;
-using Newtonsoft.Json.Linq;
-
-public class SalesforceClient
-{
-    private readonly string instanceUrl;
-    private readonly string accessToken;
-
-    public SalesforceClient(string instanceUrl, string accessToken)
-    {
-        this.instanceUrl = instanceUrl;
-        this.accessToken = accessToken;
-    }
-
-    public async Task<string> GetPermissionSetIdAsync(string permissionSetName)
-    {
-        using (var client = new HttpClient())
-        {
-            client.DefaultRequestHeaders.Add("Authorization", "Bearer " + accessToken);
-            var response = await client.GetAsync($"{instanceUrl}/services/data/v52.0/query?q=SELECT+Id+FROM+PermissionSet+WHERE+Name='{permissionSetName}'");
-            var responseString = await response.Content.ReadAsStringAsync();
-            var json = JObject.Parse(responseString);
-            return json["records"]?[0]?["Id"]?.ToString();
-        }
-    }
-
-    public async Task AssignPermissionSetAsync(string userId, string permissionSetId)
-    {
-        using (var client = new HttpClient())
-        {
-            client.DefaultRequestHeaders.Add("Authorization", "Bearer " + accessToken);
-            client.DefaultRequestHeaders.Add("Content-Type", "application/json");
-
-            var assignment = new
+            async Task InitializeAndUpdateClient()
             {
-                AssigneeId = userId,
-                PermissionSetId = permissionSetId
-            };
+                var accessToken = await tokenResponse.Value();
+                var serverUri = new Uri(accessToken.InstanceUrl);
+                var endpoint = $"{serverUri.Scheme}://{serverUri.Host}{options.Value.CometDUri}";
 
-            var content = new StringContent(JObject.FromObject(assignment).ToString(), Encoding.UTF8, "application/json");
-            var response = await client.PostAsync($"{instanceUrl}/services/data/v52.0/sobjects/PermissionSetAssignment", content);
-            response.EnsureSuccessStatusCode();
-        }
-    }
-}
+                var bayeuxClient = new BayeuxClient(endpoint, new[] { transport });
 
-class Program
-{
-    static async Task Main(string[] args)
-    {
-        var (accessToken, instanceUrl) = await SalesforceAuthenticator.GetAccessTokenAsync();
-        var client = new SalesforceClient(instanceUrl, accessToken);
+                // Use reflection to set the private _bayeuxClient field
+                var field = typeof(ResilientStreamingClient).GetField("_bayeuxClient", BindingFlags.NonPublic | BindingFlags.Instance);
+                field.SetValue(resilientStreamingClient, bayeuxClient);
+            }
 
-        string permissionSetName = "CustomOpportunityAccess";
-        string userId = "005XXXXXXXXXXXX"; // Replace with the actual User ID
+            InitializeAndUpdateClient().GetAwaiter().GetResult();
 
-        string permissionSetId = await client.GetPermissionSetIdAsync(permissionSetName);
-        if (!string.IsNullOrEmpty(permissionSetId))
-        {
-            await client.AssignPermissionSetAsync(userId, permissionSetId);
-            Console.WriteLine("Permission set assigned successfully.");
-        }
-        else
-        {
-            Console.WriteLine("Permission set not found.");
-        }
-    }
-}
-
-
-Step 1: Authenticate with Salesforce to get an access token and instance URL.
-Step 2: Prepare the custom object metadata in XML format.
-Step 3: Prepare the permission set metadata in XML format.
-Step 4: Package the metadata into a ZIP file.
-Step 5: Deploy the metadata using the Metadata API.
-Step 6: Assign the permission set to specific users to control access.
+            return resilientStreamingClient;
+        });
