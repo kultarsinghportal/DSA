@@ -4,18 +4,27 @@ public class SalesforceWrapper
 
     public SalesforceWrapper(ForceClient client) => _client = client;
 
-    public async Task<IEnumerable<T>> QueryAsync<T>(string query) =>
-        await _client.QueryAsync<T>(query);
+    public async Task<IEnumerable<T>> QueryAsync<T>(string query)
+    {
+        var result = await _client.QueryAsync<T>(query);
+        return result.Records;
+    }
 
     public async Task<string> CreateAsync<T>(T entity, string objectName)
     {
-        var result = await _client.CreateRecord(objectName, entity);
+        var result = await _client.CreateRecordAsync(objectName, entity);
         return result.Id;
     }
 
-    public async Task<bool> UpdateAsync<T>(string id, T entity, string objectName) =>
-        await _client.UpdateRecord(objectName, id, entity);
+    public async Task<bool> UpdateAsync<T>(string id, T entity, string objectName)
+    {
+        var result = await _client.UpdateRecordAsync(objectName, id, entity);
+        return result.Success;
+    }
 
-    public async Task<bool> DeleteAsync(string id, string objectName) =>
-        await _client.DeleteRecord(objectName, id);
+    public async Task<bool> DeleteAsync(string id, string objectName)
+    {
+        var result = await _client.DeleteRecordAsync(objectName, id);
+        return result.Success;
+    }
 }
