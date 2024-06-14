@@ -1,23 +1,21 @@
-public class OpportunityService
+public class SalesforceWrapper
 {
-    private readonly SalesforceWrapper _wrapper;
+    private readonly ForceClient _client;
 
-    public OpportunityService(SalesforceWrapper wrapper) => _wrapper = wrapper;
+    public SalesforceWrapper(ForceClient client) => _client = client;
 
-    public Task<IEnumerable<Opportunity>> GetOpportunitiesAsync()
+    public async Task<IEnumerable<T>> QueryAsync<T>(string query) =>
+        await _client.QueryAsync<T>(query);
+
+    public async Task<string> CreateAsync<T>(T entity, string objectName)
     {
-        string query = "SELECT Id, Name, StageName, CloseDate FROM Opportunity";
-        return _wrapper.QueryAsync<Opportunity>(query);
+        var result = await _client.CreateRecord(objectName, entity);
+        return result.Id;
     }
 
-    public Task<string> CreateOpportunityAsync(Opportunity opportunity) =>
-        _wrapper.CreateAsync(opportunity, "Opportunity");
+    public async Task<bool> UpdateAsync<T>(string id, T entity, string objectName) =>
+        await _client.UpdateRecord(objectName, id, entity);
 
-    public Task<bool> UpdateOpportunityAsync(string id, Opportunity opportunity) =>
-        _wrapper.UpdateAsync(id, opportunity, "Opportunity");
-
-    public Task<bool> DeleteOpportunityAsync(string id) =>
-        _wrapper.DeleteAsync(id, "Opportunity");
+    public async Task<bool> DeleteAsync(string id, string objectName) =>
+        await _client.DeleteRecord(objectName, id);
 }
-
-
