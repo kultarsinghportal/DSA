@@ -1,100 +1,3 @@
-Install-Package NetCoreForce.Client
-
-
-Step 2: Configure Dependency Injection
-appsettings.json:
-
-{
-  "Salesforce": {
-    "ClientId": "your_client_id",
-    "ClientSecret": "your_client_secret",
-    "Username": "your_salesforce_username",
-    "Password": "your_salesforce_password",
-    "SecurityToken": "your_security_token",
-    "LoginUrl": "https://login.salesforce.com"
-  }
-}
-
-
-
-public record SalesforceOptions(
-    string ClientId,
-    string ClientSecret,
-    string Username,
-    string Password,
-    string SecurityToken,
-    string LoginUrl
-);
-
-
-public void ConfigureServices(IServiceCollection services)
-{
-    services.Configure<SalesforceOptions>(Configuration.GetSection("Salesforce"));
-    services.AddSingleton<AuthenticationClient>();
-    services.AddSingleton(provider =>
-    {
-        var auth = provider.GetRequiredService<AuthenticationClient>();
-        var options = provider.GetRequiredService<IOptions<SalesforceOptions>>().Value;
-
-        var task = auth.UsernamePasswordAsync(
-            options.ClientId,
-            options.ClientSecret,
-            options.Username,
-            options.Password + options.SecurityToken,
-            options.LoginUrl
-        );
-
-        task.Wait();
-
-        var handler = new HttpClientHandler()
-        {
-            Proxy = new WebProxy("http://your-proxy-url:your-proxy-port", true),
-            UseProxy = true
-        };
-
-        var client = new ForceClient(auth.InstanceUrl, auth.AccessToken, auth.ApiVersion, new HttpClient(handler));
-
-        return client;
-    });
-
-    services.AddTransient<SalesforceWrapper>();
-    services.AddTransient<OpportunityService>();
-}
-
-
-public class SalesforceWrapper
-{
-    private readonly ForceClient _client;
-
-    public SalesforceWrapper(ForceClient client) => _client = client;
-
-    private async Task<T> TryExecuteAsync<T>(Func<Task<T>> func)
-    {
-        try
-        {
-            return await func();
-        }
-        catch (Exception ex)
-        {
-            // Log error (implement logging as needed)
-            throw new ApplicationException("Salesforce operation failed", ex);
-        }
-    }
-
-    public Task<IEnumerable<T>> QueryAsync<T>(string query) => 
-        TryExecuteAsync(() => _client.QueryAsync<T>(query));
-
-    public Task<bool> CreateAsync<T>(T entity, string objectName) =>
-        TryExecuteAsync(async () => await _client.CreateAsync(objectName, entity) is { Success: true });
-
-    public Task<bool> UpdateAsync<T>(string id, T entity, string objectName) =>
-        TryExecuteAsync(async () => await _client.UpdateAsync(objectName, id, entity) is { Success: true });
-
-    public Task<bool> DeleteAsync(string id, string objectName) =>
-        TryExecuteAsync(async () => await _client.DeleteAsync(objectName, id) is { Success: true });
-}
-
-
 public class OpportunityService
 {
     private readonly SalesforceWrapper _wrapper;
@@ -107,7 +10,7 @@ public class OpportunityService
         return _wrapper.QueryAsync<Opportunity>(query);
     }
 
-    public Task<bool> CreateOpportunityAsync(Opportunity opportunity) =>
+    public Task<string> CreateOpportunityAsync(Opportunity opportunity) =>
         _wrapper.CreateAsync(opportunity, "Opportunity");
 
     public Task<bool> UpdateOpportunityAsync(string id, Opportunity opportunity) =>
@@ -117,27 +20,4 @@ public class OpportunityService
         _wrapper.DeleteAsync(id, "Opportunity");
 }
 
-
-public class OpportunitiesController : Controller
-{
-    private readonly OpportunityService _opportunityService;
-
-    public OpportunitiesController(OpportunityService opportunityService) =>
-        _opportunityService = opportunityService;
-
-    public async Task<IActionResult> Index()
-    {
-        var opportunities = await _opportunityService.GetOpportunitiesAsync();
-        return View(opportunities);
-    }
-
-    [HttpPost]
-    public async Task<IActionResult> Create(Opportunity opportunity)
-    {
-        await _opportunityService.CreateOpportunityAsync(opportunity);
-        return RedirectToAction("Index");
-    }
-
-    // Additional actions for Update and Delete
-}
 
