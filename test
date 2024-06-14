@@ -1,83 +1,27 @@
-public class OpportunityService(SalesforceWrapper wrapper)
-{
-    private readonly SalesforceWrapper _wrapper = wrapper;
-
-    public Task<IEnumerable<Opportunity>> GetOpportunitiesAsync()
+ [HttpPost("create")]
+    public async Task<IActionResult> Create()
     {
-        string query = "SELECT Id, Name, StageName, CloseDate FROM Opportunity";
-        return _wrapper.QueryAsync<Opportunity>(query);
-    }
+        var body = await new StreamReader(Request.Body).ReadToEndAsync();
+        _logger.LogInformation($"Received JSON: {body}");
 
-    public Task<string> CreateOpportunityAsync(Opportunity opportunity)
-    {
-        return _wrapper.CreateAsync(opportunity, "Opportunity");
-    }
-
-    public Task<bool> UpdateOpportunityAsync(string id, Opportunity opportunity)
-    {
-        return _wrapper.UpdateAsync(id, opportunity, "Opportunity");
-    }
-
-    public Task<bool> DeleteOpportunityAsync(string id)
-    {
-        return _wrapper.DeleteAsync(id, "Opportunity");
-    }
-}
-
-
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Logging;
-using System.Threading.Tasks;
-
-[Route("opportunities")]
-public class OpportunitiesController(OpportunityService opportunityService, ILogger<OpportunitiesController> logger)
-{
-    private readonly OpportunityService _opportunityService = opportunityService;
-    private readonly ILogger<OpportunitiesController> _logger = logger;
-
-    [HttpGet("")]
-    public async Task<IActionResult> Index()
-    {
-        var opportunities = await _opportunityService.GetOpportunitiesAsync();
-        
-        foreach (var opportunity in opportunities)
+        var opportunity = JsonConvert.DeserializeObject<Opportunity>(body);
+        return opportunity switch
         {
-            _logger.LogInformation($"Opportunity: {opportunity.Name}, Stage: {opportunity.StageName}, Close Date: {opportunity.CloseDate}");
-        }
-
-        return Content("Opportunities have been logged.");
+            null => LogAndReturnBadRequest("Failed to deserialize Opportunity object"),
+            _ => await CreateOpportunity(opportunity)
+        };
     }
 
-    [HttpPost("create")]
-    public async Task<IActionResult> Create(Opportunity opportunity)
+    private IActionResult LogAndReturnBadRequest(string message)
     {
+        _logger.LogError(message);
+        return BadRequest(message);
+    }
+
+    private async Task<IActionResult> CreateOpportunity(Opportunity opportunity)
+    {
+        _logger.LogInformation($"Opportunity received: Name={opportunity.Name}, StageName={opportunity.StageName}, CloseDate={opportunity.CloseDate}");
         var id = await _opportunityService.CreateOpportunityAsync(opportunity);
         _logger.LogInformation($"Created Opportunity: {id}");
-
-        return Content($"Opportunity created with ID: {id}");
+        return Ok(new { Id = id, Message = "Opportunity created successfully." });
     }
-
-    [HttpPut("update/{id}")]
-    public async Task<IActionResult> Update(string id, Opportunity opportunity)
-    {
-        var success = await _opportunityService.UpdateOpportunityAsync(id, opportunity);
-        if (success)
-        {
-            _logger.LogInformation($"Updated Opportunity: {id}");
-        }
-
-        return Content($"Opportunity updated with ID: {id}");
-    }
-
-    [HttpDelete("delete/{id}")]
-    public async Task<IActionResult> Delete(string id)
-    {
-        var success = await _opportunityService.DeleteOpportunityAsync(id);
-        if (success)
-        {
-            _logger.LogInformation($"Deleted Opportunity: {id}");
-        }
-
-        return Content($"Opportunity deleted with ID: {id}");
-    }
-}
