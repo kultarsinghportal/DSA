@@ -1,27 +1,38 @@
- [HttpPost("create")]
-    public async Task<IActionResult> Create()
-    {
-        var body = await new StreamReader(Request.Body).ReadToEndAsync();
-        _logger.LogInformation($"Received JSON: {body}");
+public class PipelineSharingService {
+    public static void shareRecordWithUsers(Id recordId, List<String> userNames) {
+        List<User> validUsers = [SELECT Id, Name FROM User WHERE Name IN :userNames];
+        Set<Id> validUserIds = new Set<Id>();
+        for (User user : validUsers) {
+            validUserIds.add(user.Id);
+        }
 
-        var opportunity = JsonConvert.DeserializeObject<Opportunity>(body);
-        return opportunity switch
-        {
-            null => LogAndReturnBadRequest("Failed to deserialize Opportunity object"),
-            _ => await CreateOpportunity(opportunity)
-        };
-    }
+        List<Pipeline__Share> shares = new List<Pipeline__Share>();
 
-    private IActionResult LogAndReturnBadRequest(string message)
-    {
-        _logger.LogError(message);
-        return BadRequest(message);
-    }
+        for (Id userId : validUserIds) {
+            Pipeline__Share share = new Pipeline__Share();
+            share.ParentId = recordId;
+            share.UserOrGroupId = userId;
+            share.AccessLevel = 'Read';
+            share.RowCause = Schema.Pipeline__Share.RowCause.Manual;
+            shares.add(share);
+        }
 
-    private async Task<IActionResult> CreateOpportunity(Opportunity opportunity)
-    {
-        _logger.LogInformation($"Opportunity received: Name={opportunity.Name}, StageName={opportunity.StageName}, CloseDate={opportunity.CloseDate}");
-        var id = await _opportunityService.CreateOpportunityAsync(opportunity);
-        _logger.LogInformation($"Created Opportunity: {id}");
-        return Ok(new { Id = id, Message = "Opportunity created successfully." });
+        if (!shares.isEmpty()) {
+            Database.SaveResult[] results = Database.insert(shares, false);
+            for (Database.SaveResult sr : results) {
+                if (!sr.isSuccess()) {
+                    System.debug('Error: ' + sr.getErrors()[0].getMessage());
+                }
+            }
+        }
     }
+}
+
+trigger PipelineTrigger on Pipeline__c (after insert, after update) {
+    for (Pipeline__c pipelineRecord : Trigger.new) {
+        if (pipelineRecord.Users__c != null) {
+            List<String> userNames = pipelineRecord.Users__c.split(';');
+            PipelineSharingService.shareRecordWithUsers(pipelineRecord.Id, userNames);
+        }
+    }
+}
