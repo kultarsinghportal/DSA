@@ -249,26 +249,33 @@ trigger OpportunityTrigger on Opportunity (before insert, before update, after i
 public class OpportunityFutureUpdates {
     @future
     public static void updateOpportunities(Set<Id> oppIds) {
+        // Query the opportunities and related users
         List<Opportunity> oppsToUpdate = new List<Opportunity>();
-
-        Map<Id, User> users = new Map<Id, User>([SELECT Id, Name FROM User WHERE Id IN (SELECT CreatedById, LastModifiedById FROM Opportunity WHERE Id IN :oppIds)]);
+        Map<Id, User> users = new Map<Id, User>([SELECT Id, Name FROM User WHERE Id IN (SELECT CreatedById FROM Opportunity WHERE Id IN :oppIds) OR Id IN (SELECT LastModifiedById FROM Opportunity WHERE Id IN :oppIds)]);
 
         for (Opportunity opp : [SELECT Id, CreatedById, LastModifiedById FROM Opportunity WHERE Id IN :oppIds]) {
             Opportunity oppToUpdate = new Opportunity(Id = opp.Id);
+            Boolean needsUpdate = false;
             if (opp.CreatedById != null && users.containsKey(opp.CreatedById)) {
                 oppToUpdate.Created_By_Name__c = users.get(opp.CreatedById).Name;
+                needsUpdate = true;
             }
             if (opp.LastModifiedById != null && users.containsKey(opp.LastModifiedById)) {
                 oppToUpdate.Last_Modified_By_Name__c = users.get(opp.LastModifiedById).Name;
+                needsUpdate = true;
             }
-            oppsToUpdate.add(oppToUpdate);
+            if (needsUpdate) {
+                oppsToUpdate.add(oppToUpdate);
+            }
         }
 
+        // Update the opportunities if there are any changes
         if (!oppsToUpdate.isEmpty()) {
             update oppsToUpdate;
         }
     }
 }
+
 
 
 public class OpportunityTriggerHandler {
