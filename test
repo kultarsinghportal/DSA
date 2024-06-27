@@ -245,15 +245,29 @@ trigger OpportunityTrigger on Opportunity (before insert, before update, after i
 }
 
 
-
 public class OpportunityFutureUpdates {
     @future
     public static void updateOpportunities(Set<Id> oppIds) {
-        // Query the opportunities and related users
-        List<Opportunity> oppsToUpdate = new List<Opportunity>();
-        Map<Id, User> users = new Map<Id, User>([SELECT Id, Name FROM User WHERE Id IN (SELECT CreatedById FROM Opportunity WHERE Id IN :oppIds) OR Id IN (SELECT LastModifiedById FROM Opportunity WHERE Id IN :oppIds)]);
+        // Query opportunities to get the CreatedById and LastModifiedById
+        List<Opportunity> opps = [SELECT Id, CreatedById, LastModifiedById FROM Opportunity WHERE Id IN :oppIds];
 
-        for (Opportunity opp : [SELECT Id, CreatedById, LastModifiedById FROM Opportunity WHERE Id IN :oppIds]) {
+        // Collect the user IDs from the opportunities
+        Set<Id> userIds = new Set<Id>();
+        for (Opportunity opp : opps) {
+            if (opp.CreatedById != null) {
+                userIds.add(opp.CreatedById);
+            }
+            if (opp.LastModifiedById != null) {
+                userIds.add(opp.LastModifiedById);
+            }
+        }
+
+        // Query the User records
+        Map<Id, User> users = userIds.isEmpty() ? new Map<Id, User>() : new Map<Id, User>([SELECT Id, Name FROM User WHERE Id IN :userIds]);
+
+        // Prepare the list of opportunities to update
+        List<Opportunity> oppsToUpdate = new List<Opportunity>();
+        for (Opportunity opp : opps) {
             Opportunity oppToUpdate = new Opportunity(Id = opp.Id);
             Boolean needsUpdate = false;
             if (opp.CreatedById != null && users.containsKey(opp.CreatedById)) {
