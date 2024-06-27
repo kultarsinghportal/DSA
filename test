@@ -243,3 +243,77 @@ trigger OpportunityTrigger on Opportunity (before insert, before update, after i
         }
     }
 }
+
+
+
+public class OpportunityFutureUpdates {
+    @future
+    public static void updateOpportunities(Set<Id> oppIds) {
+        List<Opportunity> oppsToUpdate = new List<Opportunity>();
+
+        Map<Id, User> users = new Map<Id, User>([SELECT Id, Name FROM User WHERE Id IN (SELECT CreatedById, LastModifiedById FROM Opportunity WHERE Id IN :oppIds)]);
+
+        for (Opportunity opp : [SELECT Id, CreatedById, LastModifiedById FROM Opportunity WHERE Id IN :oppIds]) {
+            Opportunity oppToUpdate = new Opportunity(Id = opp.Id);
+            if (opp.CreatedById != null && users.containsKey(opp.CreatedById)) {
+                oppToUpdate.Created_By_Name__c = users.get(opp.CreatedById).Name;
+            }
+            if (opp.LastModifiedById != null && users.containsKey(opp.LastModifiedById)) {
+                oppToUpdate.Last_Modified_By_Name__c = users.get(opp.LastModifiedById).Name;
+            }
+            oppsToUpdate.add(oppToUpdate);
+        }
+
+        if (!oppsToUpdate.isEmpty()) {
+            update oppsToUpdate;
+        }
+    }
+}
+
+
+public class OpportunityTriggerHandler {
+    public void beforeInsertOrUpdate(List<Opportunity> opps) {
+        Set<Id> userIds = new Set<Id>();
+        Set<Id> recordTypeIds = new Set<Id>();
+        Set<Id> accountIds = new Set<Id>();
+        Set<Id> dealIds = new Set<Id>();
+
+        for (Opportunity opp : opps) {
+            if (opp.OwnerId != null) userIds.add(opp.OwnerId);
+            if (opp.RecordTypeId != null) recordTypeIds.add(opp.RecordTypeId);
+            if (opp.AccountId != null) accountIds.add(opp.AccountId);
+            if (opp.Deal__c != null) dealIds.add(opp.Deal__c);
+        }
+
+        Map<Id, User> users = userIds.isEmpty() ? new Map<Id, User>() : new Map<Id, User>([SELECT Id, Name FROM User WHERE Id IN :userIds]);
+        Map<Id, RecordType> recordTypes = recordTypeIds.isEmpty() ? new Map<Id, RecordType>() : new Map<Id, RecordType>([SELECT Id, Name FROM RecordType WHERE Id IN :recordTypeIds]);
+        Map<Id, Account> accounts = accountIds.isEmpty() ? new Map<Id, Account>() : new Map<Id, Account>([SELECT Id, Name FROM Account WHERE Id IN :accountIds]);
+        Map<Id, CustomObject__c> deals = dealIds.isEmpty() ? new Map<Id, CustomObject__c>() : new Map<Id, CustomObject__c>([SELECT Id, Name FROM CustomObject__c WHERE Id IN :dealIds]);
+
+        for (Opportunity opp : opps) {
+            if (opp.OwnerId != null && users.containsKey(opp.OwnerId)) {
+                opp.Owner_Name__c = users.get(opp.OwnerId).Name;
+            }
+            if (opp.RecordTypeId != null && recordTypes.containsKey(opp.RecordTypeId)) {
+                opp.Record_Type_Name__c = recordTypes.get(opp.RecordTypeId).Name;
+            }
+            if (opp.AccountId != null && accounts.containsKey(opp.AccountId)) {
+                opp.Account_Name__c = accounts.get(opp.AccountId).Name;
+            }
+            if (opp.Deal__c != null && deals.containsKey(opp.Deal__c)) {
+                opp.Deal_Name__c = deals.get(opp.Deal__c).Name;
+            }
+        }
+    }
+
+    public void afterInsert(List<Opportunity> opps) {
+        Set<Id> oppIds = new Set<Id>();
+
+        for (Opportunity opp : opps) {
+            oppIds.add(opp.Id);
+        }
+
+        OpportunityFutureUpdates.updateOpportunities(oppIds);
+    }
+}
+
