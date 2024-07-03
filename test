@@ -160,3 +160,76 @@ try {
     Write-Output "Error connecting to $testUrl through proxy $proxyUrl using TLS 1.2"
     Write-Output $_.Exception.Message
 }
+
+
+
+# Load the required .NET assembly for HttpClient
+Add-Type -AssemblyName "System.Net.Http"
+
+# Define a helper class for creating HttpClient with SocketsHttpHandler and proxy configuration
+Add-Type -TypeDefinition @"
+using System;
+using System.Net;
+using System.Net.Http;
+using System.Net.Sockets;
+using System.Threading.Tasks;
+
+public class HttpClientHelper
+{
+    public static HttpClient CreateHttpClient(string proxyUrl, string proxyUser, string proxyPassword)
+    {
+        var handler = new SocketsHttpHandler
+        {
+            UseProxy = true,
+            Proxy = new WebProxy(new Uri(proxyUrl))
+            {
+                BypassProxyOnLocal = false,
+                UseDefaultCredentials = false,
+                Credentials = new NetworkCredential(proxyUser, proxyPassword)
+            },
+            SslOptions = 
+            {
+                EnabledSslProtocols = System.Security.Authentication.SslProtocols.Tls12
+            },
+            ConnectCallback = async (context, token) =>
+            {
+                var proxyUri = new Uri(proxyUrl);
+                var proxyConnection = new Socket(SocketType.Stream, ProtocolType.Tcp);
+                await proxyConnection.ConnectAsync(proxyUri.Host, proxyUri.Port);
+
+                var stream = new NetworkStream(proxyConnection, ownsSocket: true);
+                return stream;
+            }
+        };
+
+        return new HttpClient(handler);
+    }
+}
+"@ -ReferencedAssemblies @("System.Net.Http.dll", "System.dll", "System.Net.dll", "System.Security.dll")
+
+# Define proxy URL, user, password, and test URL
+$proxyUrl = "http://userproxy.net:8080"
+$proxyUser = "proxyUser"
+$proxyPassword = "proxyPassword"
+$testUrl = "https://test.salesforce.com"
+
+# Create HttpClient with the specified proxy and TLS 1.2
+$httpClient = [HttpClientHelper]::CreateHttpClient($proxyUrl, $proxyUser, $proxyPassword)
+
+try {
+    # Send a GET request
+    $response = $httpClient.GetAsync($testUrl).Result
+    if ($response.IsSuccessStatusCode) {
+        Write-Output "Successfully connected to $testUrl through proxy $proxyUrl using TLS 1.2"
+        Write-Output "Status Code: $($response.StatusCode)"
+    } else {
+        Write-Output "Failed to connect to $testUrl"
+        Write-Output "Status Code: $($response.StatusCode)"
+    }
+} catch {
+    Write-Output "Error connecting to $testUrl through proxy $proxyUrl using TLS 1.2"
+    Write-Output $_.Exception.Message
+    if ($_.Exception.InnerException) {
+        Write-Output "Inner Exception: $($_.Exception.InnerException.Message)"
+    }
+}
