@@ -91,3 +91,27 @@ public class OpportunityTriggerHandler {
         }
     }
 }
+
+
+$proxyUrl = "http://userproxy.net:8080"
+$testUrl = "https://test.salesforce.com"
+$hostname = "test.salesforce.com"
+
+# Test DNS resolution
+$dnsTest = Test-NetConnection -ComputerName $hostname
+
+if ($dnsTest.DnsResolved) {
+    Write-Output "DNS resolution successful: $($dnsTest.DnsName)"
+} else {
+    Write-Output "DNS resolution failed for $hostname"
+}
+
+# Test web request through proxy
+try {
+    $webRequest = Invoke-WebRequest -Uri $testUrl -Proxy $proxyUrl -UseBasicParsing
+    Write-Output "Successfully connected to $testUrl through proxy $proxyUrl"
+    Write-Output "Status Code: $($webRequest.StatusCode)"
+} catch {
+    Write-Output "Error connecting to $testUrl through proxy $proxyUrl"
+    Write-Output $_.Exception.Message
+}
