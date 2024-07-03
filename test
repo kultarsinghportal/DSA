@@ -115,3 +115,48 @@ try {
     Write-Output "Error connecting to $testUrl through proxy $proxyUrl"
     Write-Output $_.Exception.Message
 }
+
+
+# Import necessary .NET types
+Add-Type -TypeDefinition @"
+using System.Net;
+using System.Net.Http;
+using System.Security.Authentication;
+public class HttpClientHelper
+{
+    public static HttpClient CreateHttpClient(string proxyUrl)
+    {
+        var handler = new HttpClientHandler
+        {
+            UseProxy = true,
+            Proxy = new WebProxy(proxyUrl),
+            UseDefaultCredentials = false,
+            SslProtocols = SslProtocols.Tls12
+        };
+        
+        return new HttpClient(handler);
+    }
+}
+"@
+
+# Define proxy URL and test URL
+$proxyUrl = "http://userproxy.net:8080"
+$testUrl = "https://test.salesforce.com"
+
+# Create HttpClient with the specified proxy and TLS 1.2
+$httpClient = [HttpClientHelper]::CreateHttpClient($proxyUrl)
+
+try {
+    # Send a GET request
+    $response = $httpClient.GetAsync($testUrl).Result
+    if ($response.IsSuccessStatusCode) {
+        Write-Output "Successfully connected to $testUrl through proxy $proxyUrl using TLS 1.2"
+        Write-Output "Status Code: $($response.StatusCode)"
+    } else {
+        Write-Output "Failed to connect to $testUrl"
+        Write-Output "Status Code: $($response.StatusCode)"
+    }
+} catch {
+    Write-Output "Error connecting to $testUrl through proxy $proxyUrl using TLS 1.2"
+    Write-Output $_.Exception.Message
+}
