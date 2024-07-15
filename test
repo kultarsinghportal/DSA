@@ -1,0 +1,58 @@
+public class PipelineSharingHandler {
+    public static void shareWithUsers(List<Pipeline__c> pipelineRecords) {
+        List<Pipeline__Share> sharesToInsert = new List<Pipeline__Share>();
+        List<Pipeline__Share> sharesToDelete = new List<Pipeline__Share>();
+
+        for (Pipeline__c pipeline : pipelineRecords) {
+            if (pipeline.Allowed_User_Ids__c != null) {
+                // First, remove existing sharing rules for this record
+                sharesToDelete.addAll([
+                    SELECT Id 
+                    FROM Pipeline__Share 
+                    WHERE ParentId = :pipeline.Id AND RowCause = Schema.Pipeline__Share.RowCause.Manual
+                ]);
+
+                // Split the comma-separated user IDs
+                List<String> userIds = pipeline.Allowed_User_Ids__c.split(',');
+
+                for (String userId : userIds) {
+                    // Create a sharing rule for each user
+                    Pipeline__Share share = new Pipeline__Share();
+                    share.ParentId = pipeline.Id;
+                    share.UserOrGroupId = userId.trim();
+                    share.AccessLevel = 'Read';
+                    share.RowCause = Schema.Pipeline__Share.RowCause.Manual;
+                    sharesToInsert.add(share);
+                }
+            }
+        }
+
+        // Delete old sharing rules
+        if (!sharesToDelete.isEmpty()) {
+            try {
+                delete sharesToDelete;
+            } catch (DmlException e) {
+                System.debug('An error occurred while deleting shares: ' + e.getMessage());
+            }
+        }
+
+        // Insert new sharing rules
+        if (!sharesToInsert.isEmpty()) {
+            try {
+                insert sharesToInsert;
+            } catch (DmlException e) {
+                System.debug('An error occurred while inserting shares: ' + e.getMessage());
+            }
+        }
+    }
+}
+
+
+trigger PipelineTrigger on Pipeline__c (after insert, after update) {
+    if (Trigger.isAfter) {
+        if (Trigger.isInsert || Trigger.isUpdate) {
+            // Call the static method in the handler class with the list of new or updated records
+            PipelineSharingHandler.shareWithUsers(Trigger.new);
+        }
+    }
+}
