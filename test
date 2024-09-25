@@ -1,14 +1,7 @@
+I am a Software Engineer with experience in software development, currently working in the capital markets sector. I previously worked at EFI, where I gained valuable skills in software engineering. I have completed the Cloud DevOps Nanodegree from Udacity, acquiring expertise in:
 
-In Salesforce's standard behavior, tasks have an Owner field indicating the assigned user or queue. Team members can view and edit tasks based on role hierarchy and sharing settings. However, task visibility is not automatically inherited from related custom objects, and any user with access can update task status or reassign ownership.
-
-Managers should assign tasks to team members with an Owner field indicating the current assignee. Any user with inherited visibility from the CM Exposure object should see which team or member the task is assigned to, and all users with access should be able to edit the task and update its status.
-
-
-Salesforce's standard behavior allows users to create List Views or Reports to filter tasks based on criteria like ownership, due dates, and status. However, complex filtering, such as "Tasks without an owner" or "Tasks for my team within 7 days," requires custom reports or advanced filtering through Visualforce or Lightning components.
-
-Create task filtration options with criteria such as Tasks (All), Tasks (My Team), Tasks (My Team, 7 days), Tasks (No Owner), and Tasks (For Me). These filters should allow users to easily view tasks by team, ownership, and upcoming deadlines for efficient task management and prioritization.
-
-
-
-
-
+AWS Cloud Fundamentals: Proficient in AWS services like EC2, RDS, S3, and IAM, with a solid understanding of cloud computing concepts and security.
+Infrastructure as Code (IAC): Skilled in deploying resources using AWS CloudFormation and managing networking and database services.
+Microservices and Kubernetes: Experienced in building scalable architectures with Kubernetes, Docker, and AWS Lambda.
+CI/CD Pipelines: Adept in establishing automation and monitoring through continuous integration and deployment with GitHub Actions.
+This skill set positions me to contribute to the exploration and future implementation of cloud-based solutions within the capital markets sector.
